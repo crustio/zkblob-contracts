@@ -9,7 +9,7 @@ contract DAS is AccessControl {
     address[] public dasNodeAddresses;
     mapping(address => bool) public dasNodeExists;
 
-    constructor(){
+    constructor() {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
@@ -23,9 +23,11 @@ contract DAS is AccessControl {
      */
     error DASNodeExist(address);
 
-    function addDASNodeAddress(address _dasNodeAddress) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function addDASNodeAddress(
+        address _dasNodeAddress
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_dasNodeAddress == address(0)) {
-            revert InvalidAddress();
+            revert InvalidAddress(address(0));
         }
 
         if (dasNodeExists[_dasNodeAddress]) {
