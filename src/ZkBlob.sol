@@ -6,8 +6,8 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 contract ZkBlob is AccessControl {
-    bytes32 public constant SEQUENCER_ROLE = keccak256("SEQUENCER_ROLE");
-    address public sequencerAddress;
+    bytes32 public constant ZKBLOB_ROLE = keccak256("ZKBLOB_ROLE");
+    address public zkblobAddress;
 
     mapping(uint256 => bytes32) public roots;
 
@@ -22,7 +22,7 @@ contract ZkBlob is AccessControl {
     error RepeatedBatch(uint256 batchNum);
 
     /**
-     * @dev Thrown when the signer is not sequencer address.
+     * @dev Thrown when the signer is not zkblob address.
      */
     error WrongSignature(address signer);
 
@@ -31,34 +31,53 @@ contract ZkBlob is AccessControl {
      */
     error InvalidMerkleProof();
 
+    /**
+     * @dev Thrown when the zkblob address is not set
+     */
+    error ZkBlobAddressNotSet();
 
-    constructor(address _sequencerAddress){
-        sequencerAddress = _sequencerAddress;
+    /**
+     * @dev Thrown when the batch count not match
+     */
+    error PostBatchCountNotMatch();
+
+
+    constructor(address _zkblobAddress){
+        zkblobAddress = _zkblobAddress;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(SEQUENCER_ROLE, _sequencerAddress);
+
+        _grantRole(ZKBLOB_ROLE, _zkblobAddress);
     }
 
-    function setSequencerAddress(address _sequencerAddress) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        sequencerAddress = _sequencerAddress;
-        // Revoke old sequencer
-        _revokeRole(SEQUENCER_ROLE, sequencerAddress);
-        // Grant new sequencer
-        _grantRole(SEQUENCER_ROLE, _sequencerAddress);
+    function setZkBlobAddress(address _zkblobAddress) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        zkblobAddress = _zkblobAddress;
+        // Revoke old zkblob
+        _revokeRole(ZKBLOB_ROLE, zkblobAddress);
+        // Grant new zkblob
+        _grantRole(ZKBLOB_ROLE, _zkblobAddress);
     }
 
-    function postBatch(uint256 batchNum, bytes32 root, bytes memory signature) public onlyRole(SEQUENCER_ROLE) {
-        if (roots[batchNum] != bytes32(0)) {
-            revert RepeatedBatch(batchNum);
+    function postBatchs(uint256[] memory batchNum, bytes32[] memory root, bytes memory signature) public onlyRole(ZKBLOB_ROLE) {
+        if(batchNum.length != root.length) {
+            revert PostBatchCountNotMatch();
+        }
+
+        for (uint256 i = 0; i < batchNum.length; i++) {
+            if (roots[batchNum[i]] != bytes32(0)) {
+                revert RepeatedBatch(batchNum[i]);
+            }
         }
 
         bytes32 signedHash = keccak256(abi.encodePacked(batchNum, root));
 
         address signer = ECDSA.recover(signedHash, signature);
-        if (signer != sequencerAddress) {
+        if (signer != zkblobAddress) {
             revert WrongSignature(signer);
         }
 
-        roots[batchNum] = root;
+        for (uint256 i = 0; i < batchNum.length; i++) {
+            roots[batchNum[i]] = root[i];
+        }
     }
 
     function verifyBlob(uint256 batchNum, bytes32 hash, bytes32[] calldata merkleProof) public view returns(bool) {
